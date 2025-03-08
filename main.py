@@ -30,7 +30,7 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
             f"交易对: {symbol}",
             f"交易所: {', '.join(exchanges)}",
             f"模式: {'模拟交易' if dry_run else '真实交易'}",
-            f"启动时间: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}"
+            f"启动时间: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}",
             f"利差阈值: {threshold:.2f}%"
         ]
         self.send_webhook("\n".join(startup_msg))
@@ -54,7 +54,7 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
                 self.balances[exchange]['quote'] = quote_balance
                 
                 balance_msg.append(
-                    f"{exchange.upper()}: {base_balance:.4f} {base_currency} | {quote_balance:.4f} {quote_currency}"
+                    f"{exchange.upper()}: \n{base_balance:.4f}\t{base_currency}\n{quote_balance:.4f}\t{quote_currency}"
                 )
             except Exception as e:
                 balance_msg.append(f"{exchange.upper()}: 查询失败 ({str(e)})")
