@@ -5,6 +5,7 @@ from datetime import datetime
 from collections import defaultdict
 import websockets
 import requests
+import time
 
 # WebSocket配置（更新支持更多交易所）
 EXCHANGE_WS_CONFIG = {
@@ -23,13 +24,13 @@ EXCHANGE_WS_CONFIG = {
         'symbol_format': lambda s: s.replace('/', '-')
     },
     'bitget': {
-        'url': 'wss://ws.bitget.com/spot/v1/stream',
-        'price_key': 'price',
+        'url': 'wss://ws.bitget.com/v2/ws/public',
+        'price_key': 'markPrice',
         'subscribe_msg': {
             "op": "subscribe",
             "args": [{
-                "instType": "SP",
-                "channel": "trade",
+                "instType": "USDT-FUTURES",
+                "channel": "ticker",
                 "instId": "{symbol}"
             }]
         },
@@ -42,8 +43,10 @@ EXCHANGE_WS_CONFIG = {
     }
 }
 
+# wsmonitor.py 部分关键修改
+
 class SinglePairMonitor:
-    def __init__(self, symbol, exchanges, threshold, webhook_url):
+    def __init__(self, symbol: str, exchanges, threshold, webhook_url):
         self.symbol = symbol
         self.exchanges = exchanges
         self.threshold = threshold
@@ -79,6 +82,9 @@ class SinglePairMonitor:
 
     async def handle_price_update(self, exchange, price):
         """处理价格更新并立即计算价差"""
+
+        # 数据驱动
+        print(f"更新价格: {exchange} - {price}")
         async with self.lock:
             # 更新价格
             self.prices[exchange] = float(price)
@@ -104,7 +110,6 @@ class SinglePairMonitor:
             # 触发警报
             if spread >= self.threshold:
                 await self.send_alert(spread, valid_prices)
-
     async def connect_exchange(self, exchange):
         """连接交易所WebSocket"""
         config = EXCHANGE_WS_CONFIG.get(exchange)
@@ -143,16 +148,26 @@ class SinglePairMonitor:
                         await ws.send(sub_msg)
                         
                         async for msg in ws:
-                            data = json.loads(msg)
-                            # 添加更精确的消息格式验证
-                            if data.get('action') in ['snapshot', 'update']:
-                                # 确保data字段是有效列表格式
+                            try:
+                                data = json.loads(msg)
+                                if data.get('action') not in ['snapshot', 'update']:
+                                    continue
+                                
                                 trades = data.get('data', [])
-                                if isinstance(trades, list) and len(trades) > 0:
-                                    latest_trade = trades[0]  # 总取最新成交
-                                    if config['price_key'] in latest_trade:
-                                        price = latest_trade[config['price_key']]
-                                        await self.handle_price_update(exchange, price)
+                                if not isinstance(trades, list) or len(trades) == 0:
+                                    continue
+                                
+                                latest_trade = trades[0]
+                                price = latest_trade.get(config['price_key'])
+                                if price is None:
+                                    print(f"Bitget 价格解析失败: {msg}")
+                                    continue
+                                
+                                await self.handle_price_update(exchange, float(price))
+                                
+                            except Exception as e:
+                                print(f"Bitget 消息处理异常: {str(e)}")
+                                continue
                 
                 else:  # 处理其他交易所
                     url = config['url'].format(symbol=formatted_symbol)
@@ -167,14 +182,18 @@ class SinglePairMonitor:
                             await ws.send(sub_msg)
                         
                         async for msg in ws:
-                            data = json.loads(msg)
-                            if exchange == 'okx' and 'data' in data:
-                                price = data['data'][0][config['price_key']]
-                            elif exchange == 'binance':
-                                price = data[config['price_key']]
-                            else:
+                            try:
+                                data = json.loads(msg)
+                                if exchange == 'binance':
+                                    price = float(data.get(config['price_key']))
+                                else:
+                                    continue
+                                
+                                await self.handle_price_update(exchange, price)
+                                
+                            except Exception as e:
+                                print(f"{exchange} 消息处理异常: {str(e)}")
                                 continue
-                            await self.handle_price_update(exchange, price)
                             
             except Exception as e:
                 print(f"{exchange}连接错误：{str(e)}，5秒后重连...")

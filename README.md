@@ -25,3 +25,23 @@
 ## 联系方式
 
 - 邮箱：code-dream@qq.com
+
+## 使用命令
+
+``` shell
+# 默认是模拟交易
+python3 main.py --symbol TRUMP/USDT --exchanges binance bitget --threshold 0.3
+
+# 实盘交易需要注意交易所的一些限制，程序出错崩溃应该立刻停止止损。真实交易存在滑点
+python3 main.py --symbol TRUMP/USDT --exchanges binance bitget --threshold 0.3 --real-trade
+```
+
+
+## TODO
+
+验证能跑通的交易所有
+
+- [ √ ] binance
+- [ √ ] bitget
+- [ ] okx
+- [ ] htx
