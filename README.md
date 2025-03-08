@@ -2,7 +2,9 @@
 
 ## 简介
 
-本项目是一个自动套利机器人，基于Python语言开发，使用的是Python的cctx库，完成跨交易所套利
+本项目是一个自动套利机器人，基于Python语言开发，使用的是Python的ccxt,websocket,requests库，完成跨交易所套利
+推荐使用conda避免环境问题
+推荐 Python 3.12.9
 
 ## 功能
 
