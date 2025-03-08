@@ -1,71 +1,144 @@
+import argparse
+import yaml
 import ccxt
+import time
 
-def execute_arbitrage(symbol, a_exchange, b_exchange, amount, trade_fee_a, trade_fee_b, cross_chain_fee):
-    """
-    执行跨交易所套利操作，返回理论计算结果
-    """
-    # 加载市场信息并检查交易对是否存在
-    a_exchange.load_markets()
-    b_exchange.load_markets()
-    
-    if symbol not in a_exchange.markets:
-        raise ValueError(f"交易对 {symbol} 在 {a_exchange.name} 不存在")
-    if symbol not in b_exchange.markets:
-        raise ValueError(f"交易对 {symbol} 在 {b_exchange.name} 不存在")
-    
-    # 获取市场精度
-    market_a = a_exchange.market(symbol)
-    market_b = b_exchange.market(symbol)
-    
-    # 获取订单簿数据
-    a_orderbook = a_exchange.fetch_order_book(symbol)
-    b_orderbook = b_exchange.fetch_order_book(symbol)
-    
-    a_ask = a_orderbook['asks'][0][0] if len(a_orderbook['asks']) > 0 else None
-    b_bid = b_orderbook['bids'][0][0] if len(b_orderbook['bids']) > 0 else None
-    
-    if not a_ask or not b_bid:
-        raise ValueError("无法获取有效价格")
-    
-    # 计算买入数量（考虑手续费）
-    base_precision = market_a['precision']['base']
-    getcontext().prec = 10  # 设置 Decimal 精度
-    
-    # 计算理论买入数量
-    quote_amount = Decimal(str(amount))
-    a_ask_dec = Decimal(str(a_ask))
-    fee_multiplier_a = Decimal('1') - Decimal(str(trade_fee_a))
-    
-    base_bought = (quote_amount / a_ask_dec) * fee_multiplier_a
-    base_after_transfer = base_bought - Decimal(str(cross_chain_fee))
-    
-    if base_after_transfer <= 0:
-        raise ValueError("跨链后基础货币数量不足")
-    
-    # 计算卖出金额（考虑手续费）
-    b_bid_dec = Decimal(str(b_bid))
-    fee_multiplier_b = Decimal('1') - Decimal(str(trade_fee_b))
-    quote_obtained = base_after_transfer * b_bid_dec * fee_multiplier_b
-    
-    profit = quote_obtained - quote_amount
-    
-    # 四舍五入到市场精度
-    base_bought_rounded = round(base_bought, base_precision)
-    quote_obtained_rounded = round(quote_obtained, market_b['precision']['quote'])
-    profit_rounded = round(profit, market_b['precision']['quote'])
-    
-    return {
-        'symbol': symbol,
-        'buy_exchange': a_exchange.name,
-        'sell_exchange': b_exchange.name,
-        'buy_price': float(a_ask),
-        'sell_price': float(b_bid),
-        'base_bought': float(base_bought_rounded),
-        'quote_obtained': float(quote_obtained_rounded),
-        'profit': float(profit_rounded),
-        'fees': {
-            'trade_fee_a': trade_fee_a,
-            'trade_fee_b': trade_fee_b,
-            'cross_chain_fee': cross_chain_fee
+def execute_arbitrage(symbol: str, a_exchange: ccxt.Exchange, b_exchange: ccxt.Exchange, amount: float):
+    """执行跨交易所市价单套利交易。amount：为买入数量币的数量，不是USDT数量"""
+    try:
+        # 强制使用市价单交易， 市价单比限价单手续费要多。这里可以进行调参优化 限价单优惠买卖加低的手续费可能利润更高。可以自行调参测试
+
+        # Fix bitget api 需要传createMarketBuyOrderRequiresPrice，否则是限价单
+        a_params = {}
+        if a_exchange.id == 'bitget':
+            a_params={'createMarketBuyOrderRequiresPrice': False}
+        b_params = {}
+        if b_exchange.id == 'bitget':
+            b_params={'createMarketBuyOrderRequiresPrice': False}
+
+
+        buy_order = a_exchange.create_market_buy_order(symbol, amount, a_params)
+        sell_order = b_exchange.create_market_sell_order(symbol, amount, b_params)
+
+        print("交易开始...")
+        while True:
+            buy_order = a_exchange.fetch_order(buy_order['id'], symbol)
+            sell_order = b_exchange.fetch_order(sell_order['id'], symbol)
+
+            if buy_order['status'] == 'closed' and sell_order['status'] == 'closed':
+                break
+            time.sleep(1)
+
+            # 打印交易的进度
+            print(f"交易进度: 买入 {buy_order['status']}，卖出 {sell_order['status']}")
+
+        buy_price = buy_order['average']
+        sell_price = sell_order['average']
+
+        # 免手续费fee情况的处理
+        buy_fee = 0.0
+        if buy_order['fee'] is not None:
+            buy_fee = buy_order['fee']['cost']
+        elif buy_order['fees']:
+            buy_fee = sum(fee['cost'] for fee in buy_order['fees'])
+
+        sell_fee = 0.0
+        if sell_order['fee'] is not None:
+            sell_fee = sell_order['fee']['cost']
+        elif sell_order['fees']:
+            sell_fee = sum(fee['cost'] for fee in sell_order['fees'])
+
+        # 计算实际买入成本
+        actual_buy_cost = buy_price * amount + buy_fee
+
+        # 计算实际卖出收入
+        actual_sell_income = sell_price * amount - sell_fee
+
+        # 计算利润
+        profit = actual_sell_income - actual_buy_cost
+
+        return {
+            'buy_price': buy_price,
+            'sell_price': sell_price,
+            'base_acquired': amount,
+            'final_quote': actual_sell_income,
+            'profit': profit,
+            'profitable': profit > 0
         }
-    }
+    except ccxt.InsufficientFunds as e:
+        raise ValueError(f"资金不足: {str(e)}")
+    except ccxt.NetworkError as e:
+        raise ValueError(f"网络错误: {str(e)}")
+    except ccxt.ExchangeError as e:
+        raise ValueError(f"交易所错误: {str(e)}")
+    except Exception as e:
+        raise ValueError(f"交易执行失败: {str(e)}")
+
+def load_exchange(config, exchange_name):
+    """从配置加载交易所实例"""
+    try:
+        exchange_class = getattr(ccxt, exchange_name)
+        exchange_params = {
+            'apiKey': config['exchanges'][exchange_name]['api_key'],
+            'secret': config['exchanges'][exchange_name]['api_secret'],
+            'enableRateLimit': True
+        }
+        
+        if 'password' in config['exchanges'][exchange_name]:
+            exchange_params['password'] = config['exchanges'][exchange_name]['password']
+        
+        return exchange_class(exchange_params)
+    except (KeyError, AttributeError) as e:
+        raise ValueError(f"交易所配置错误: {str(e)}")
+
+def main():
+    parser = argparse.ArgumentParser(description='跨交易所市价套利工具')
+    parser.add_argument('--symbol', required=True, help='交易对，例如 BTC/USDT')
+    parser.add_argument('--buy', required=True, dest='buy_exchange', help='买入交易所名称')
+    parser.add_argument('--sell', required=True, dest='sell_exchange', help='卖出交易所名称')
+    parser.add_argument('--amount', type=float, required=True, help='投入金额（基础货币）不是计价货币BTC/USDT，BTC是基础货币，USDT是计价货币')
+    parser.add_argument('--config', default='config.yaml', help='配置文件路径')
+    args = parser.parse_args()
+
+    # 初始化部分
+    try:
+        with open(args.config) as f:
+            config = yaml.safe_load(f)
+    except FileNotFoundError:
+        print(f"错误：配置文件 {args.config} 未找到")
+        return
+
+    try:
+        buy_ex = load_exchange(config, args.buy_exchange)
+        sell_ex = load_exchange(config, args.sell_exchange)
+    except ValueError as e:
+        print(e)
+        return
+
+    # 执行套利交易的代码部分
+    try:
+        result = execute_arbitrage(
+            symbol=args.symbol,
+            a_exchange=buy_ex,
+            b_exchange=sell_ex,
+            amount=args.amount,
+        )
+    except Exception as e:
+        print(f"执行错误: {str(e)}")
+        return
+
+    # 格式化输出
+    print(f"\n套利交易结果 ({args.symbol})")
+    print("="*40)
+    print(f"[买入] {args.buy_exchange.ljust(10)} 均价: {result['buy_price']:.8f}")
+    print(f"[卖出] {args.sell_exchange.ljust(10)} 均价: {result['sell_price']:.8f}")
+    print("-"*40)
+    print(f"实际买入数量: {result['base_acquired']:.8f}")
+    print(f"最终获得金额: {result['final_quote']:.2f}")
+    print(f"投入金额: {args.amount:.2f}")
+    print("="*40)
+    status = "成功盈利" if result['profitable'] else "亏损"
+    print(f"实际利润: {result['profit']:.2f} ({status})")
+
+if __name__ == '__main__':
+    main()
