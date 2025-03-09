@@ -54,7 +54,7 @@ python3 main.py --symbol TRUMP/USDT --exchanges binance bitget --threshold 0.3 -
 
 验证能跑通的交易所有
 
-- [ √ ] binance
-- [ √ ] bitget
-- [ √ ] okx
+- [x] binance
+- [x] bitget
+- [x] okx
 - [ ] htx
