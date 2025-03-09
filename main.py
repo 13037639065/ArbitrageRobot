@@ -169,17 +169,16 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
                     self.trade_count += 1
                     fee_info = '0' if self.dry_run else f"({result['buy_fee']}, {result['sell_fee']})"
                     
-                    alert_msg = (
-                        f"✅ {'[模拟] ' if self.dry_run else ''}套利信号\n"
-                        f"交易对: {self.symbol}\n"
-                        f"买入: {buy_ex} ({result['buy_price']:.4f})\n"
-                        f"卖出: {sell_ex} ({result['sell_price']:.4f})\n"
-                        f"价差百分比：{spread}%%\n",
-                        f"预期利润: {result['profit']:.4f} {self.symbol.split('/')[1]}\n",
-                        # 如果是实盘交易显示fee
-                        f"手续费：{fee_info}\n",
-                    )
-                    self.send_webhook(alert_msg)
+                    alert_msg = [
+                        f"✅ {'[模拟] ' if self.dry_run else ''}套利信号"
+                        f"交易对: {self.symbol}"
+                        f"买入: {buy_ex} ({result['buy_price']:.4f})"
+                        f"卖出: {sell_ex} ({result['sell_price']:.4f})"
+                        f"价差百分比：{spread}%%",
+                        f"预期利润: {result['profit']:.4f} {self.symbol.split('/')[1]}",
+                        f"手续费：{fee_info}",
+                    ]
+                    self.send_webhook("\n".join(alert_msg))
             except Exception as e:
                 error_msg = [
                     "‼️ 交易执行异常",
