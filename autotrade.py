@@ -63,7 +63,9 @@ def execute_arbitrage(symbol: str, a_exchange: ccxt.Exchange, b_exchange: ccxt.E
             'base_acquired': amount,
             'final_quote': actual_sell_income,
             'profit': profit,
-            'profitable': profit > 0
+            'profitable': profit > 0,
+            'buy_fee': buy_fee,
+            'sell_fee': sell_fee,
         }
     except ccxt.InsufficientFunds as e:
         raise ValueError(f"资金不足: {str(e)}")

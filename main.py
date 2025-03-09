@@ -102,13 +102,13 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
         status = [
             f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] {self.symbol}",
             *[f"{ex.upper()}: {price:.4f}" for ex, price in valid_prices.items()],
-            f"价差: {spread:.4f}%"
+            f"价差百分比: {spread:.4f}%"
         ]
         print("\n".join(status) + "\n" + "-"*40)
         
         if spread >= self.threshold:
-            return buy_ex, sell_ex
-        return None, None
+            return buy_ex, sell_ex, spread
+        return None, None, None
 
     async def safe_execute_arbitrage(self, buy_ex, sell_ex):
         """安全执行套利交易（支持模拟模式）"""        
@@ -159,7 +159,7 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
         
         async with self.lock:
             self.price_records[exchange] = float(price)
-            buy_ex, sell_ex = await self.find_best_opportunity()
+            buy_ex, sell_ex, spread = await self.find_best_opportunity()
             if not buy_ex or not sell_ex:
                 return
             try:
@@ -173,7 +173,10 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
                         f"交易对: {self.symbol}\n"
                         f"买入: {buy_ex} ({result['buy_price']:.4f})\n"
                         f"卖出: {sell_ex} ({result['sell_price']:.4f})\n"
-                        f"预期利润: {result['profit']:.4f} {self.symbol.split('/')[1]}"
+                        f"价差百分比：{spread}%%\n",
+                        f"预期利润: {result['profit']:.4f} {self.symbol.split('/')[1]}\n",
+                        # 如果是实盘交易显示fee
+                        f"手续费：{"0" if self.dry_run else f"({result['buy_fee']}, {result['sell_fee']})"}\n",
                     )
                     self.send_webhook(alert_msg)
             except Exception as e:
