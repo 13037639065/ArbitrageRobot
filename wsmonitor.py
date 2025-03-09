@@ -15,11 +15,15 @@ EXCHANGE_WS_CONFIG = {
         'symbol_format': lambda s: s.replace('/', '').lower()
     },
     'okx': {
-        'url': 'wss://ws.okx.com:8443/ws/v5/public',
+        'url': 'wss://exchainws.okex.org:8443',
         'price_key': 'lastPx',
         'subscribe_msg': {
             "op": "subscribe",
-            "args": [{"channel": "trades", "instId": "{symbol}"}]
+            "args": [{
+                "channel": "tickers",  # 注意频道名是 "tickers" 而非 "ticker"
+                "instType": "SPOT",    # 明确产品类型（现货）
+                "instId": "{symbol}"   # 交易对名称用短横线分隔
+            }]
         },
         'symbol_format': lambda s: s.replace('/', '-')
     },

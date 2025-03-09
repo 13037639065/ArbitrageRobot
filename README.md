@@ -19,6 +19,8 @@
 3. 修改配置文件config.json，配置交易所的API密钥和API密钥密码
 4. 运行main.py文件
 
+
+
 ## 注意事项
 
 - 本项目仅供学习和研究使用，不保证套利成功率
@@ -30,6 +32,16 @@
 
 ## 使用命令
 
+### 安装环境
+
+``` shell
+conda create -n freqtrade python=3.12.9
+conda activate freqtrade
+pip3 install ccxt requests pyyaml websockets
+```
+
+### 工具使用
+
 ``` shell
 # 默认是模拟交易
 python3 main.py --symbol TRUMP/USDT --exchanges binance bitget --threshold 0.3
@@ -38,12 +50,11 @@ python3 main.py --symbol TRUMP/USDT --exchanges binance bitget --threshold 0.3
 python3 main.py --symbol TRUMP/USDT --exchanges binance bitget --threshold 0.3 --real-trade
 ```
 
-
 ## TODO
 
 验证能跑通的交易所有
 
 - [ √ ] binance
 - [ √ ] bitget
-- [ ] okx
+- [ √ ] okx
 - [ ] htx
