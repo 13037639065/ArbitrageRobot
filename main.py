@@ -9,7 +9,7 @@ from wsmonitor import SinglePairMonitor
 from autotrade import execute_arbitrage, load_exchange
 
 class MultiExchangeArbitrageBot(SinglePairMonitor):
-    def __init__(self, config, symbol, exchanges, threshold, webhook_url, dry_run=True):
+    def __init__(self, config, symbol, exchanges, threshold, webhook_url, limit = 1, dry_run=True):
         super().__init__(symbol, exchanges, threshold, webhook_url)
         self.dry_run = dry_run  # 新增 dry-run 模式开关
         self.start_time = datetime.now()
@@ -18,6 +18,8 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
         self.trade_count = 0
         self.total_profit = 0
         self.called = False
+        self.trade_lock = asyncio.Lock()
+        self.base_amount_max_limit = limit
 
         # 实例化
         self.exchange_instances = {
@@ -30,6 +32,7 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
             f"交易对: {symbol}",
             f"交易所: {', '.join(exchanges)}",
             f"模式: {'模拟交易' if dry_run else '真实交易'}",
+            f"数量限制: {limit} {symbol.split('/')[0]}",
             f"启动时间: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}",
             f"利差阈值: {threshold:.2f}%"
         ]
@@ -111,24 +114,11 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
         return None, None, None
 
     async def safe_execute_arbitrage(self, buy_ex, sell_ex):
-        """安全执行套利交易（支持模拟模式）"""        
         if self.dry_run:
             trade_amount = 1
-        else:
-            # 实盘交易
-            available_balance = self.balances[sell_ex]['quote']
-        
-            # 计算动态交易量（可用余额的5%-20%）
-            risk_factor = min((self.threshold / 0.3), 0.2)  # 阈值每0.1%对应约6.6%仓位
-            trade_amount = min(
-                available_balance * risk_factor,
-                self.balances[buy_ex]['base']  # 不超过买入交易所的基础货币余额
-            )
-
-        print(f"{'[模拟] ' if self.dry_run else ''}执行套利: {buy_ex}→{sell_ex} 数量: {trade_amount:.4f}")
-        
-        if self.dry_run:
-            # 生成模拟交易结果
+            print(f"模拟交易中，请等待...")
+            await asyncio.sleep(10)
+            print(f"模拟交易完成~~~")
             return {
                 'buy_price': self.price_records[buy_ex],
                 'sell_price': self.price_records[sell_ex],
@@ -136,14 +126,17 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
                 'symbol': self.symbol
             }
         else:
-            trade_amount = 1
+            # 实盘交易逻辑,
+            # 根据 balances 买卖的余额计算最大可以操作的基础代币
+            max_buy_amount = self.balances[buy_ex]['base'] * 0.9 / self.price_records[buy_ex]
+            available_balance = min(max_buy_amount, self.balances[sell_ex]['quote'])
+            trade_amount = min(available_balance, self.base_amount_max_limit)
             return execute_arbitrage(
                 self.symbol,
                 self.exchange_instances[buy_ex],
                 self.exchange_instances[sell_ex],
                 trade_amount
             )
-
     def send_webhook(self, message):
         """增强的 webhook 发送方法"""
         try:
@@ -156,39 +149,47 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
             print(f"Webhook 发送失败: {str(e)}")
 
     async def handle_price_update(self, exchange, price):
-        
         async with self.lock:
             self.price_records[exchange] = float(price)
             buy_ex, sell_ex, spread = await self.find_best_opportunity()
             if not buy_ex or not sell_ex:
                 return
-            try:
+            
+        try:
+            if self.trade_lock.locked():
+                print(f"⚠️ 已有交易进行中，跳过 {buy_ex}→{sell_ex}")
+                return
+            async with self.trade_lock:
                 result = await self.safe_execute_arbitrage(buy_ex, sell_ex)
+                  # 交易结果处理
                 if result:
                     self.total_profit += result['profit']
                     self.trade_count += 1
-                    fee_info = '0' if self.dry_run else f"({result['buy_fee']}, {result['sell_fee']})"
+                    fee_info = '0' if self.dry_run else f"({result.get('buy_fee', 0)}, {result.get('sell_fee', 0)})"
                     
                     alert_msg = [
-                        f"✅ {'[模拟] ' if self.dry_run else ''}套利信号"
-                        f"交易对: {self.symbol}"
-                        f"买入: {buy_ex} ({result['buy_price']:.4f})"
-                        f"卖出: {sell_ex} ({result['sell_price']:.4f})"
-                        f"价差百分比：{spread}%%",
+                        f"✅ {'[模拟] ' if self.dry_run else ''}套利信号",
+                        f"交易对: {self.symbol}",
+                        f"买入: {buy_ex} ({result['buy_price']:.4f})",
+                        f"卖出: {sell_ex} ({result['sell_price']:.4f})",
+                        f"价差百分比：{((result['sell_price'] - result['buy_price'])/result['buy_price']*100):.2f}%",
                         f"预期利润: {result['profit']:.4f} {self.symbol.split('/')[1]}",
-                        f"手续费：{fee_info}",
+                        f"手续费：{fee_info}"
                     ]
-                    self.send_webhook("\n".join(alert_msg))
-            except Exception as e:
-                error_msg = [
-                    "‼️ 交易执行异常",
-                    f"时间: {datetime.now().isoformat()}",
-                    f"模式: {'模拟' if self.dry_run else '真实'}",
-                    f"错误类型: {type(e).__name__}",
-                    f"错误详情: {str(e)}"
-                ]
-                self.send_webhook("\n".join(error_msg))
-                raise
+                    report = "\n".join(alert_msg)
+                    print(report)
+                    self.send_webhook(report)
+                return result
+        except Exception as e:
+            error_msg = [
+                "‼️ 交易执行异常",
+                f"时间: {datetime.now().isoformat()}",
+                f"模式: {'模拟' if self.dry_run else '真实'}",
+                f"错误类型: {type(e).__name__}",
+                f"错误详情: {str(e)}"
+            ]
+            self.send_webhook("\n".join(error_msg))
+            raise
 
     def print_summary(self, is_error=False):
         """增强的总结报告"""
@@ -222,6 +223,8 @@ async def main():
                        help='监控的交易所列表')
     parser.add_argument('--threshold', type=float, default=0.3,
                        help='触发套利的最小价差百分比')
+    parser.add_argument('--limit', type=float, default=1,
+                       help='实盘交易中最大交易的基础币数量，默认为 1')
     
     # 设置 dry_run 默认值为 True
     parser.set_defaults(dry_run=True)
@@ -243,6 +246,7 @@ async def main():
         exchanges=args.exchanges,
         threshold=args.threshold,
         webhook_url=webhook_url,
+        limit=args.limit,
         dry_run=args.dry_run  # 传递 dry-run 参数
     )
 
