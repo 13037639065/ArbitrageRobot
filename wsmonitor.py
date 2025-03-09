@@ -55,6 +55,7 @@ class SinglePairMonitor:
         self.exchanges = exchanges
         self.threshold = threshold
         self.webhook_url = webhook_url
+        self.is_running = True
         
         # 价格存储结构：{exchange: price}
         self.prices = defaultdict(lambda: None)
@@ -123,85 +124,91 @@ class SinglePairMonitor:
 
         formatted_symbol = config['symbol_format'](self.symbol)
         
-        while True:
-            try:
-                if exchange == 'htx':
-                    # HTX需要特殊处理订阅消息
-                    async with websockets.connect(config['url']) as ws:
-                        sub_msg = json.dumps({
-                            "sub": f"market.{formatted_symbol}",
-                            "id": "price_monitor"
-                        })
-                        await ws.send(sub_msg)
-                        
-                        async for msg in ws:
-                            data = json.loads(msg)
-                            if 'ping' in data:
-                                # 保持连接心跳
-                                pong_msg = json.dumps({"pong": data['ping']})
-                                await ws.send(pong_msg)
-                            elif 'tick' in data:
-                                price = data['tick']['data'][0]['price']
-                                await self.handle_price_update(exchange, price)
-                
-                elif exchange == 'bitget':
-                    async with websockets.connect(config['url']) as ws:
-                        sub_msg = json.dumps(
-                            config['subscribe_msg']
-                        ).replace("{symbol}", formatted_symbol)
-                        await ws.send(sub_msg)
-                        
-                        async for msg in ws:
-                            try:
+        try:
+            while self.is_running:
+                try:
+                    if exchange == 'htx':
+                        # HTX需要特殊处理订阅消息
+                        async with websockets.connect(config['url']) as ws:
+                            sub_msg = json.dumps({
+                                "sub": f"market.{formatted_symbol}",
+                                "id": "price_monitor"
+                            })
+                            await ws.send(sub_msg)
+                            
+                            async for msg in ws:
                                 data = json.loads(msg)
-                                if data.get('action') not in ['snapshot', 'update']:
-                                    continue
-                                
-                                trades = data.get('data', [])
-                                if not isinstance(trades, list) or len(trades) == 0:
-                                    continue
-                                
-                                latest_trade = trades[0]
-                                price = latest_trade.get(config['price_key'])
-                                if price is None:
-                                    print(f"Bitget 价格解析失败: {msg}")
-                                    continue
-                                
-                                await self.handle_price_update(exchange, float(price))
-                                
-                            except Exception as e:
-                                print(f"Bitget 消息处理异常: {str(e)}")
-                                continue
-                
-                else:  # 处理其他交易所
-                    url = config['url'].format(symbol=formatted_symbol)
-                    if exchange == 'okx':
-                        url = config['url']
+                                if 'ping' in data:
+                                    # 保持连接心跳
+                                    pong_msg = json.dumps({"pong": data['ping']})
+                                    await ws.send(pong_msg)
+                                elif 'tick' in data:
+                                    price = data['tick']['data'][0]['price']
+                                    await self.handle_price_update(exchange, price)
                     
-                    async with websockets.connect(url) as ws:
-                        if 'subscribe_msg' in config:
+                    elif exchange == 'bitget':
+                        async with websockets.connect(config['url']) as ws:
                             sub_msg = json.dumps(
                                 config['subscribe_msg']
                             ).replace("{symbol}", formatted_symbol)
                             await ws.send(sub_msg)
-                        
-                        async for msg in ws:
-                            try:
-                                data = json.loads(msg)
-                                if exchange == 'binance':
-                                    price = float(data.get(config['price_key']))
-                                else:
-                                    continue
-                                
-                                await self.handle_price_update(exchange, price)
-                                
-                            except Exception as e:
-                                print(f"{exchange} 消息处理异常: {str(e)}")
-                                continue
                             
-            except Exception as e:
-                print(f"{exchange}连接错误：{str(e)}，5秒后重连...")
-                await asyncio.sleep(5)
+                            async for msg in ws:
+                                try:
+                                    data = json.loads(msg)
+                                    if data.get('action') not in ['snapshot', 'update']:
+                                        continue
+                                    
+                                    trades = data.get('data', [])
+                                    if not isinstance(trades, list) or len(trades) == 0:
+                                        continue
+                                    
+                                    latest_trade = trades[0]
+                                    price = latest_trade.get(config['price_key'])
+                                    if price is None:
+                                        print(f"Bitget 价格解析失败: {msg}")
+                                        continue
+                                    
+                                    await self.handle_price_update(exchange, float(price))
+                                    
+                                except Exception as e:
+                                    print(f"Bitget 消息处理异常: {str(e)}")
+                                    continue
+                    
+                    else:  # 处理其他交易所
+                        url = config['url'].format(symbol=formatted_symbol)
+                        if exchange == 'okx':
+                            url = config['url']
+                        
+                        async with websockets.connect(url) as ws:
+                            if 'subscribe_msg' in config:
+                                sub_msg = json.dumps(
+                                    config['subscribe_msg']
+                                ).replace("{symbol}", formatted_symbol)
+                                await ws.send(sub_msg)
+                            
+                            async for msg in ws:
+                                try:
+                                    data = json.loads(msg)
+                                    if exchange == 'binance':
+                                        price = float(data.get(config['price_key']))
+                                    else:
+                                        continue
+                                    
+                                    await self.handle_price_update(exchange, price)
+                                    
+                                except Exception as e:
+                                    print(f"{exchange} 消息处理异常: {str(e)}")
+                                    continue 
+                except Exception as e:
+                    print(f"{exchange}连接错误：{str(e)}，5秒后重连...")
+                    await asyncio.sleep(5)
+        except asyncio.exceptions.CancelledError:
+            print("ws 连接已取消")
+        except asyncio.CancelledError:
+            print("ws 连接已取消")
+        finally:
+            print("ws 连接已断开")
 
 async def main():
     parser = argparse.ArgumentParser(description="单交易对多交易所实时价差监控")
