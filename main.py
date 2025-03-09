@@ -156,7 +156,7 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
                 return result
             except Exception as e:
                 self.send_webhook(f"‼️ 交易执行异常: {str(e)}")
-                raise
+                exit(2)
 
     def send_webhook(self, message):
         """增强的 webhook 发送方法"""
@@ -220,7 +220,7 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
             self.send_webhook("\n".join(error_msg))
             print(f"Error: {str(e)}")
             # 直接退出，余额不足，断网问题，账号被限制
-            exit(-1)
+            exit(1)
 
     async def stop(self, reason="正常停止"):
         self.is_running = False

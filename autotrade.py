@@ -59,7 +59,6 @@ def execute_arbitrage(symbol: str, a_exchange: ccxt.Exchange, b_exchange: ccxt.E
         return {
             'buy_price': buy_price,
             'sell_price': sell_price,
-            'final_quote': actual_sell_income,
             'profit': profit,
             'profitable': profit > 0,
             'buy_fee': buy_fee,
