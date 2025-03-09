@@ -131,6 +131,17 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
                     self.base_amount_max_limit
                 )
 
+                # 提示即将进行的交易信息
+                self.send_webhook("\n".join([
+                     f"即将进行的交易信息",
+                     f"交易对: {self.symbol}",
+                     f"买卖交易所: {buy_ex} -> {sell_ex}",
+                     f"买入价：{self.price_records[buy_ex]:.4f}",
+                     f"卖出价：{self.price_records[sell_ex]:.4f}",
+                     f"{self.symbol.split("/")[0]}交易量：{trade_amount:.4f}",
+                     f"{self.symbol.split("/")[0]}可用余额：(买{max_buy:.4f},卖{max_sell:.4f},限{self.base_amount_max_limit:.4f})",
+                ]))
+
                 result = execute_arbitrage(
                     self.symbol,
                     self.exchange_instances[buy_ex],
@@ -204,7 +215,9 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
                 f"剩余次数: {self.max_trades - self.trade_count}"
             ]
             self.send_webhook("\n".join(error_msg))
-            raise
+            print(f"Error: {str(e)}")
+            # 直接退出，余额不足，断网问题，账号被限制
+            exit(-1)
 
     async def stop(self, reason="正常停止"):
         self.is_running = False
