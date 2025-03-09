@@ -50,8 +50,11 @@ def execute_arbitrage(symbol: str, a_exchange: ccxt.Exchange, b_exchange: ccxt.E
             sell_fee = sum(fee['cost'] for fee in sell_order['fees'])
 
 
-        buy_price = buy_order['average'] * buy_order['amount'] + buy_fee
+        buy_price = buy_order['average']
         sell_price = sell_order['average']
+
+        print(buy_order)
+        print(sell_order)
         
         # 计算利润 从 buy_order 和 sell_order
         profit = buy_price * buy_order['amount'] + buy_fee - (sell_price * sell_order['amount'] - sell_fee)
