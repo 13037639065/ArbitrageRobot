@@ -167,6 +167,7 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
                 if result:
                     self.total_profit += result['profit']
                     self.trade_count += 1
+                    fee_info = '0' if self.dry_run else f"({result['buy_fee']}, {result['sell_fee']})"
                     
                     alert_msg = (
                         f"✅ {'[模拟] ' if self.dry_run else ''}套利信号\n"
@@ -176,7 +177,7 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
                         f"价差百分比：{spread}%%\n",
                         f"预期利润: {result['profit']:.4f} {self.symbol.split('/')[1]}\n",
                         # 如果是实盘交易显示fee
-                        f"手续费：{"0" if self.dry_run else f"({result['buy_fee']}, {result['sell_fee']})"}\n",
+                        f"手续费：{fee_info}\n",
                     )
                     self.send_webhook(alert_msg)
             except Exception as e:
