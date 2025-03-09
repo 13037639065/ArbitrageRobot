@@ -146,7 +146,8 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
                     self.symbol,
                     self.exchange_instances[buy_ex],
                     self.exchange_instances[sell_ex],
-                    trade_amount
+                    trade_amount,
+                    self.price_records[buy_ex] * trade_amount if buy_ex == 'bitget' else None, # bitget只能以U计价买入
                 )
 
                 # 完成后显示并更新余额
@@ -200,6 +201,8 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
                         f"卖出: {sell_ex} ({result['sell_price']:.4f})",
                         f"价差: {(result['sell_price']-result['buy_price'])/result['buy_price']*100:.2f}%",
                         f"利润: {result['profit']:.4f} {self.symbol.split('/')[1]}",
+                        # 如果是实盘输出手续费
+                        f"手续费：{0 if self.dry_run else f'{result['buy_fee']}+{result['sell_fee']}={(result['buy_fee']+result['sell_fee']):.4f}'}",
                         f"剩余次数: {self.max_trades - self.trade_count}"
                     ]
                     self.send_webhook("\n".join(alert_msg))

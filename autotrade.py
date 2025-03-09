@@ -3,22 +3,26 @@ import yaml
 import ccxt
 import time
 
-def execute_arbitrage(symbol: str, a_exchange: ccxt.Exchange, b_exchange: ccxt.Exchange, amount: float):
+def execute_arbitrage(symbol: str, a_exchange: ccxt.Exchange, b_exchange: ccxt.Exchange, base_amount: float, quote_amount: float = None):
     """执行跨交易所市价单套利交易。amount：为买入数量币的数量，不是USDT数量"""
     try:
         # 强制使用市价单交易， 市价单比限价单手续费要多。这里可以进行调参优化 限价单优惠买卖加低的手续费可能利润更高。可以自行调参测试
 
         # Fix bitget api 需要传createMarketBuyOrderRequiresPrice，否则是限价单
+        buy_amount = base_amount
         a_params = {}
         if a_exchange.id == 'bitget':
             a_params={'createMarketBuyOrderRequiresPrice': False}
+            buy_amount = quote_amount
         b_params = {}
         if b_exchange.id == 'bitget':
             b_params={'createMarketBuyOrderRequiresPrice': False}
 
+        if quote_amount == None:
+            quote_amount = base_amount
 
-        buy_order = a_exchange.create_market_buy_order(symbol, amount, a_params)
-        sell_order = b_exchange.create_market_sell_order(symbol, amount, b_params)
+        buy_order = a_exchange.create_market_buy_order(symbol, buy_amount, a_params)
+        sell_order = b_exchange.create_market_sell_order(symbol, base_amount, b_params)
 
         print("交易开始...")
         while True:
@@ -32,40 +36,35 @@ def execute_arbitrage(symbol: str, a_exchange: ccxt.Exchange, b_exchange: ccxt.E
             # 打印交易的进度
             print(f"交易进度: 买入 {buy_order['status']}，卖出 {sell_order['status']}")
 
-        buy_price = buy_order['average']
-        sell_price = sell_order['average']
-
         # 免手续费fee情况的处理
         buy_fee = 0.0
         if buy_order['fee'] is not None:
-            buy_fee = buy_order['fee']['cost']
+            buy_fee = float(buy_order['fee']['cost'])
         elif buy_order['fees']:
             buy_fee = sum(fee['cost'] for fee in buy_order['fees'])
 
         sell_fee = 0.0
         if sell_order['fee'] is not None:
-            sell_fee = sell_order['fee']['cost']
+            sell_fee = float(sell_order['fee']['cost'])
         elif sell_order['fees']:
             sell_fee = sum(fee['cost'] for fee in sell_order['fees'])
 
-        # 计算实际买入成本
-        actual_buy_cost = buy_price * amount + buy_fee
 
-        # 计算实际卖出收入
-        actual_sell_income = sell_price * amount - sell_fee
-
-        # 计算利润
-        profit = actual_sell_income - actual_buy_cost
+        buy_price = buy_order['average'] * buy_order['amount'] + buy_fee
+        sell_price = sell_order['average']
+        
+        # 计算利润 从 buy_order 和 sell_order
+        profit = buy_price * buy_order['amount'] + buy_fee - (sell_price * sell_order['amount'] - sell_fee)
 
         return {
             'buy_price': buy_price,
             'sell_price': sell_price,
-            'base_acquired': amount,
             'final_quote': actual_sell_income,
             'profit': profit,
             'profitable': profit > 0,
             'buy_fee': buy_fee,
             'sell_fee': sell_fee,
+            'coin': float(buy_order['amount']) - float(sell_order['amount']),
         }
     except ccxt.InsufficientFunds as e:
         raise ValueError(f"资金不足: {str(e)}")
