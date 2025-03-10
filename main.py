@@ -60,7 +60,10 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
             except Exception as e:
                 error_msg = f"{exchange.upper()}: 余额查询失败 ({str(e)})"
                 balance_msg.append(error_msg)
-                raise RuntimeError(error_msg)
+                if self.dry_run:
+                    pass
+                else:
+                    raise RuntimeError(error_msg)
         
         full_msg = "\n".join(balance_msg)
         print(full_msg)
