@@ -114,13 +114,14 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
             return None
 
         if self.dry_run:
-            await asyncio.sleep(10)
-            return {
-                'buy_price': self.price_records[buy_ex],
-                'sell_price': self.price_records[sell_ex],
-                'profit': (self.price_records[sell_ex] - self.price_records[buy_ex]) * 1, # 模拟一个基础货币
-                'symbol': self.symbol
-            }
+            await asyncio.sleep(5) # 等5秒，模拟滑点
+            async with self.lock:
+                return {
+                    'buy_price': self.price_records[buy_ex],
+                    'sell_price': self.price_records[sell_ex],
+                    'profit': (self.price_records[sell_ex] - self.price_records[buy_ex]) * 1, # 模拟一个基础货币
+                    'symbol': self.symbol
+                }
         else:
             try:
                 # 计算实际可交易量
@@ -195,14 +196,15 @@ class MultiExchangeArbitrageBot(SinglePairMonitor):
                 result = await self.safe_execute_arbitrage(buy_ex, sell_ex)
                 if result:
                     self.total_profit += result['profit']
-                    self.trade_count += 1
+                    if not self.dry_run:
+                        self.trade_count += 1
 
                     alert_msg = [
                         f"✅ {'[模拟] ' if self.dry_run else ''}套利信号",
                         f"交易对: {self.symbol}",
                         f"买入: {buy_ex} ({result['buy_price']:.4f})",
                         f"卖出: {sell_ex} ({result['sell_price']:.4f})",
-                        f"价差: {(result['sell_price']-result['buy_price'])/result['buy_price']*100:.2f}%",
+                        f"价差: {((result['sell_price']-result['buy_price']) / result['buy_price'] * 100.0):.2f}%",
                         f"利润: {result['profit']:.4f} {self.symbol.split('/')[1]}",
                         # 如果是实盘输出手续费
                         f"手续费：{0 if self.dry_run else f'{result['buy_fee']}+{result['sell_fee']}={(result['buy_fee']+result['sell_fee']):.4f}'}",
