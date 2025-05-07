@@ -19,7 +19,7 @@ def get_api_key():
         pathlib.Path(__file__).parent.resolve(), ".", "config.ini"
     )
     config.read(config_file_path)
-    return config["keys"]["api_key"], config["keys"]["api_secret"], config["webhook"]
+    return config["keys"]["api_key"], config["keys"]["api_secret"], config["keys"]["webhook"]
 
 
 if __name__ == '__main__':
