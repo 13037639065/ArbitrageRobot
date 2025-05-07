@@ -6,6 +6,8 @@ import json
 from binance.um_futures import UMFutures
 from configparser import ConfigParser
 
+SYMBOL = "BTCUSDT"
+
 def wxwork_message(url, message):
     requests.post(
         url,
@@ -33,7 +35,7 @@ if __name__ == '__main__':
             print(f"[{current_time}] 查询合约订单状态...")
             
             # 查询当前合约持有
-            open_orders = umFutures.get_all_orders(symbol="BTCUSDC")
+            open_orders = umFutures.get_all_orders(symbol=SYMBOL)
             print(open_orders)
             if open_orders != []:
                 # 立马下止损单
@@ -42,7 +44,7 @@ if __name__ == '__main__':
                     if order['status'] == 'FILLED':
                         print(f"[{current_time}] 持有订单: {order}")
                         # 获取订单信息
-                        order_info = umFutures.query_order(orderId=order['orderId'])
+                        order_info = umFutures.query_order(symbol=SYMBOL ,orderId=order['orderId'])
                         print(order_info)
                         # 获取订单价格
                         order_price = order_info['price']
