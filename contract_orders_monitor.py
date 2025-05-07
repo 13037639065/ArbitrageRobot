@@ -33,7 +33,7 @@ if __name__ == '__main__':
             print(f"[{current_time}] 查询合约订单状态...")
             
             # 查询当前合约持有
-            open_orders = umFutures.get_open_orders(symbol="BTCUSDC")
+            open_orders = umFutures.get_open_orders(symbol="*")
             print(open_orders)
             if open_orders != []:
                 # 立马下止损单
@@ -42,5 +42,5 @@ if __name__ == '__main__':
 
         except Exception as e:
             print(f"查询失败: {str(e)}")
-            wxwork_message(webhook_url, "查询失败, 检查网络，并手动的币安交易所确认订单状态")
+            wxwork_message(webhook_url, f"查询失败, 检查网络，并手动的币安交易所确认订单状态\n{e}")
         time.sleep(10)
