@@ -33,7 +33,7 @@ if __name__ == '__main__':
             print(f"[{current_time}] 查询合约订单状态...")
             
             # 查询当前合约持有
-            open_orders = umFutures.query_order("*")
+            open_orders = umFutures.query_order("BTCUSDC")
             print(open_orders)
             if open_orders != []:
                 # 立马下止损单
