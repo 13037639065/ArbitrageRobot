@@ -24,7 +24,7 @@ def get_api_key():
 
 if __name__ == '__main__':
     key,secret,webhook_url = get_api_key()
-    client = CMFutures(api_key=key, api_secret=secret)
+    client = CMFutures(key=key, secret=secret)
     print("===========================")
     while True:
         try:
