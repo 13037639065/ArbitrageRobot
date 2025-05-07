@@ -42,7 +42,7 @@ if __name__ == '__main__':
                     if order['status'] == 'FILLED':
                         print(f"[{current_time}] 持有订单: {order}")
                         # 获取订单信息
-                        order_info = umFutures.get_order(order['orderId'])
+                        order_info = umFutures.query_order(orderId=order['orderId'])
                         print(order_info)
                         # 获取订单价格
                         order_price = order_info['price']
