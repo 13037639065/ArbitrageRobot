@@ -42,5 +42,5 @@ if __name__ == '__main__':
 
         except Exception as e:
             print(f"查询失败: {str(e)}")
-        
+            wxwork_message(webhook_url, "查询失败, 检查网络，并手动的币安交易所确认订单状态")
         time.sleep(10)
