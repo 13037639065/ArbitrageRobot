@@ -3,7 +3,7 @@ import time
 import pathlib
 import requests
 import json
-from binance.cm_futures import CMFutures
+from binance.um_futures import UMFutures
 from configparser import ConfigParser
 
 def wxwork_message(url, message):
@@ -24,7 +24,7 @@ def get_api_key():
 
 if __name__ == '__main__':
     key,secret,webhook_url = get_api_key()
-    client = CMFutures(key=key, secret=secret)
+    umFutures = UMFutures(key=key, secret=secret)
     print("===========================")
     while True:
         try:
@@ -33,7 +33,7 @@ if __name__ == '__main__':
             print(f"[{current_time}] 查询合约订单状态...")
             
             # 查询当前合约持有
-            open_orders = client.get_open_orders()
+            open_orders = umFutures.get_open_orders()
             print(open_orders)
             if open_orders != []:
                 # 立马下止损单
