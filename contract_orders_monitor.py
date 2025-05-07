@@ -6,7 +6,7 @@ import json
 from binance.um_futures import UMFutures
 from configparser import ConfigParser
 
-SYMBOL = "BTCUSDT"
+SYMBOL = "BTCUSDC"
 
 def wxwork_message(url, message):
     requests.post(
