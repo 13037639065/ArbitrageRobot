@@ -33,12 +33,24 @@ if __name__ == '__main__':
             print(f"[{current_time}] 查询合约订单状态...")
             
             # 查询当前合约持有
-            open_orders = umFutures.query_order("BTCUSDC")
+            open_orders = umFutures.get_all_orders()
             print(open_orders)
             if open_orders != []:
                 # 立马下止损单
-                strs = json.dumps(open_orders, indent=4)
-                wxwork_message(webhook_url, strs)
+                for order in open_orders:
+                    # 持有订单
+                    if order['status'] == 'FILLED':
+                        print(f"[{current_time}] 持有订单: {order}")
+                        # 获取订单信息
+                        order_info = umFutures.get_order(order['orderId'])
+                        print(order_info)
+                        # 获取订单价格
+                        order_price = order_info['price']
+                        # 获取订单数量
+                        order_amount = order_info['origQty']
+
+                        strs = json.dumps(order_info, indent=4)
+                        wxwork_message(webhook_url, strs)
 
         except Exception as e:
             print(f"查询失败: {str(e)}")
