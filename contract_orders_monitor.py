@@ -33,7 +33,7 @@ if __name__ == '__main__':
             print(f"[{current_time}] 查询合约订单状态...")
             
             # 查询当前合约持有
-            open_orders = umFutures.get_all_orders(symbol=".*")
+            open_orders = umFutures.get_orders(symbol=".*")
             print(open_orders)
             if open_orders != []:
                 # 立马下止损单
