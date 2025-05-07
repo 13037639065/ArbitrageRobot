@@ -1,9 +1,17 @@
 import os
 import time
 import pathlib
-
+import requests
+import json
 from binance.spot import Spot
 from configparser import ConfigParser
+
+def wxwork_message(url, message):
+    requests.post(
+        url,
+        json={"msgtype": "text", "text": {"content": message}},
+        timeout=3
+    )
 
 def get_api_key():
     config = ConfigParser()
@@ -11,11 +19,11 @@ def get_api_key():
         pathlib.Path(__file__).parent.resolve(), ".", "config.ini"
     )
     config.read(config_file_path)
-    return config["keys"]["api_key"], config["keys"]["api_secret"]
+    return config["keys"]["api_key"], config["keys"]["api_secret"], config["url"]
 
 
 if __name__ == '__main__':
-    key,secret = get_api_key()
+    key,secret,url = get_api_key()
     client = Spot(api_key=key, api_secret=secret)
     print("===========================")
     while True:
@@ -27,6 +35,10 @@ if __name__ == '__main__':
             # 查询当前合约持有
             open_orders = client.get_open_orders()
             print(open_orders)
+            # 判断 open_orders != [] 数组
+            # if open_orders != []:
+            strs = json.dumps(open_orders, indent=4)
+            wxwork_message(url, strs)
 
         except Exception as e:
             print(f"查询失败: {str(e)}")
