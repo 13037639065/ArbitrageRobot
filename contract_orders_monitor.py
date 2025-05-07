@@ -3,7 +3,7 @@ import time
 import pathlib
 import requests
 import json
-from binance.spot import Spot
+from binance.cm_futures import CMFutures
 from configparser import ConfigParser
 
 def wxwork_message(url, message):
@@ -24,7 +24,7 @@ def get_api_key():
 
 if __name__ == '__main__':
     key,secret,webhook_url = get_api_key()
-    client = Spot(api_key=key, api_secret=secret)
+    client = CMFutures(api_key=key, api_secret=secret)
     print("===========================")
     while True:
         try:
@@ -35,10 +35,10 @@ if __name__ == '__main__':
             # 查询当前合约持有
             open_orders = client.get_open_orders()
             print(open_orders)
-            # 判断 open_orders != [] 数组
-            # if open_orders != []:
-            strs = json.dumps(open_orders, indent=4)
-            wxwork_message(webhook_url, strs)
+            if open_orders != []:
+                # 立马下止损单
+                strs = json.dumps(open_orders, indent=4)
+                wxwork_message(webhook_url, strs)
 
         except Exception as e:
             print(f"查询失败: {str(e)}")
