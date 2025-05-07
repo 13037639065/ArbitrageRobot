@@ -19,11 +19,11 @@ def get_api_key():
         pathlib.Path(__file__).parent.resolve(), ".", "config.ini"
     )
     config.read(config_file_path)
-    return config["keys"]["api_key"], config["keys"]["api_secret"], config["url"]
+    return config["keys"]["api_key"], config["keys"]["api_secret"], config["webhook"]
 
 
 if __name__ == '__main__':
-    key,secret,url = get_api_key()
+    key,secret,webhook_url = get_api_key()
     client = Spot(api_key=key, api_secret=secret)
     print("===========================")
     while True:
@@ -38,7 +38,7 @@ if __name__ == '__main__':
             # 判断 open_orders != [] 数组
             # if open_orders != []:
             strs = json.dumps(open_orders, indent=4)
-            wxwork_message(url, strs)
+            wxwork_message(webhook_url, strs)
 
         except Exception as e:
             print(f"查询失败: {str(e)}")
