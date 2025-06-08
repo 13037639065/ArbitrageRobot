@@ -42,6 +42,7 @@ class HyperliquidMonitor:
                 for fill in fills:
                     coin = fill.get("coin", "未知币种")
                     vaule = float(fill.get("px", 0)) * float(fill.get("sz", 0))
+                    print(json.dumps(fill, indent=4))
                     if coin in WHITE_LIST and vaule > VALUE_FILTER:
                         print('满足')
                         timedate_str = int(fill['time'] / 1000).strftime("%Y-%m-%d %H:%M:%S") 
@@ -49,7 +50,7 @@ class HyperliquidMonitor:
                         send_feishu_text(WEBHOOK_URL, f"{coin} 价值：{vaule} 操作：{dir}", f"时间：{timedate_str}\n地址：{self.target_address}\n{json.dumps(fill, indent=4)}")
                     else:
                         print('条件不满足')
-                        print(json.dumps(fill, indent=4))
+                        
         except Exception as e:
             print(f"处理更新时发生错误: {str(e)}")
 
