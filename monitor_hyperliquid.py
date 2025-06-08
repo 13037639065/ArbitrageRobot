@@ -28,6 +28,7 @@ class HyperliquidMonitor:
     
     def handle_update(self, data: Any):
         try:
+            print(data)
             send_feishu_text(WEBHOOK_URL, "交易记录", json.dumps(data, indent=4))
             # 提取持仓信息
             if "data" in data and "position" in data["data"]:
