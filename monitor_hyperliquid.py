@@ -35,7 +35,11 @@ class HyperliquidMonitor:
                     coin = fill.get("coin", "未知币种")
                     vaule = float(fill.get("px", 0)) * float(fill.get("sz", 0))
                     if coin in WHITE_LIST and vaule > VALUE_FILTER:
+                        print('满足')
                         send_feishu_text(WEBHOOK_URL, f"{self.target_address} 成交信息", f"{json.dumps(fill, indent=4)}")
+                    else:
+                        print('条件不满足')
+                        print(json.dumps(fill, indent=4))
         except Exception as e:
             print(f"处理更新时发生错误: {str(e)}")
 
