@@ -101,7 +101,7 @@ class HyperliquidMonitor:
         try:
             # 订阅用户数据
             self.subscription_id = self.info.subscribe(
-                {"type": "user", "user": self.target_address},
+                {"type": "userEvents", "user": self.target_address},
                 self.handle_update
             )
             

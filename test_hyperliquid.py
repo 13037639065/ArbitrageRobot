@@ -4,7 +4,7 @@ import json
 from typing import Any
 
 # 替换为你要监控的地址
-TARGET_ADDRESS = "0x8e80c4b533dd977cf716b5c24fd9223129272804"
+TARGET_ADDRESS = "0x5b5d51203a0f9079f8aeb098a6523a13f298c060"
 
 # 初始化带WebSocket连接的Info实例
 info = Info(constants.MAINNET_API_URL, skip_ws=False)
@@ -17,7 +17,7 @@ def handle_update(data: Any):
 try:
     # 订阅指定地址的交易数据（新版SDK需要回调函数）
     subscription_id = info.subscribe(
-        {"type": "user", "user": TARGET_ADDRESS},  # 订阅参数
+        {"type": "userEvents", "user": TARGET_ADDRESS},  # 订阅参数
         handle_update  # 必须的回调函数
     )
     
