@@ -170,9 +170,6 @@ class HyperliquidMonitor:
     
     def stop_monitoring(self):
         """停止监控"""
-        if self.subscription_id is not None:
-            self.info.unsubscribe(self.subscription_id)
-            print("订阅已取消")
         self.info.disconnect_websocket()
         print("连接已关闭")
 
