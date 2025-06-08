@@ -7,7 +7,7 @@ from feishu_msg import send_feishu_text
 import sys
 
 # 配置参数
-TARGET_ADDRESS = "0x5b5d51203a0f9079f8aeb098a6523a13f298c060"  # 监控地址
+DEFAULT_TARGET_ADDRESS = "0x5b5d51203a0f9079f8aeb098a6523a13f298c060"  # 监控地址
 
 # WEBHOOK_URL 从 环境变量获取
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
@@ -20,7 +20,7 @@ class HyperliquidMonitor:
         self.subscription_id = None
         self.last_notification_time = 0
         self.last_position_value = 0
-        self.target_address = TARGET_ADDRESS
+        self.target_address = DEFAULT_TARGET_ADDRESS
         if  address != None:
             self.target_address = address
         send_feishu_text(WEBHOOK_URL, f"启动监控巨鲸 {self.target_address}", "")
@@ -52,14 +52,14 @@ class HyperliquidMonitor:
                 # 清仓检测
                 if position_sz == 0 and self.last_position_value > 0:
                     print("检测到清仓操作！")
-                    msg = f"【Hyperliquid 清仓通知】\n地址: {TARGET_ADDRESS}\n币种: {coin}\n仓位价值: ${self.last_position_value:.2f}"
+                    msg = f"【Hyperliquid 清仓通知】\n地址: {self.target_address}\n币种: {coin}\n仓位价值: ${self.last_position_value:.2f}"
                     send_feishu_text(WEBHOOK_URL, "Hyperliquid 清仓通知", msg)
                 
                 # 大额加仓检测
                 position_change = position_value - self.last_position_value
                 if position_change > POSITION_THRESHOLD:
                     print(f"检测到大额加仓！价值: ${position_change:.2f}")
-                    msg = f"【Hyperliquid 大额加仓通知】\n地址: {TARGET_ADDRESS}\n币种: {coin}\n加仓价值: ${position_change:.2f}\n总仓位价值: ${position_value:.2f}"
+                    msg = f"【Hyperliquid 大额加仓通知】\n地址: {self.target_address}\n币种: {coin}\n加仓价值: ${position_change:.2f}\n总仓位价值: ${position_value:.2f}"
                     send_feishu_text(WEBHOOK_URL, "Hyperliquid 大额加仓通知", msg)
                 
                 self.last_position_value = position_value
@@ -88,7 +88,7 @@ class HyperliquidMonitor:
                     # 大额交易提醒
                     if trade_value > POSITION_THRESHOLD:
                         print("检测到大额交易！")
-                        msg = f"【Hyperliquid 大额交易通知】\n地址: {TARGET_ADDRESS}\n币种: {coin}\n方向: {side}\n价格: ${px:.2f}\n数量: {sz}\n成交价值: ${trade_value:.2f}"
+                        msg = f"【Hyperliquid 大额交易通知】\n地址: {self.target_address}\n币种: {coin}\n方向: {side}\n价格: ${px:.2f}\n数量: {sz}\n成交价值: ${trade_value:.2f}"
                         send_feishu_text(WEBHOOK_URL, "Hyperliquid 大额交易通知", msg)
 
         except Exception as e:
@@ -98,11 +98,11 @@ class HyperliquidMonitor:
         try:
             # 订阅用户数据
             self.subscription_id = self.info.subscribe(
-                {"type": "user", "user": TARGET_ADDRESS},
+                {"type": "user", "user": self.target_address},
                 self.handle_update
             )
             
-            print(f"开始监控地址 {TARGET_ADDRESS} 的实时交易...")
+            print(f"开始监控地址 {self.target_address} 的实时交易...")
             print(f"大额交易阈值: ${POSITION_THRESHOLD:.2f}")
             print("按 Ctrl+C 停止监控...")
             
@@ -120,7 +120,7 @@ class HyperliquidMonitor:
     def check_position_status(self):
         """获取并显示当前持仓状态"""
         try:
-            user_state = self.info.user_state(TARGET_ADDRESS)
+            user_state = self.info.user_state(self.target_address)
             cross_margin_summary = user_state.get("crossMarginSummary", {})
             account_value = float(cross_margin_summary.get("accountValue", 0))
             total_raw_usd = float(cross_margin_summary.get("totalRawUsd", 0))
@@ -149,7 +149,7 @@ class HyperliquidMonitor:
                         
                         # 检测大额持仓
                         if position_value > POSITION_THRESHOLD:
-                            msg = f"【Hyperliquid 大额持仓提醒】\n地址: {TARGET_ADDRESS}\n币种: {coin}\n价值: ${position_value:.2f}\n入场价: ${entry_px:.2f}\n数量: {position_sz}" 
+                            msg = f"【Hyperliquid 大额持仓提醒】\n地址: {self.target_address}\n币种: {coin}\n价值: ${position_value:.2f}\n入场价: ${entry_px:.2f}\n数量: {position_sz}" 
                             send_feishu_text(WEBHOOK_URL, "Hyperliquid 大额持仓提醒", msg)
             
             return total_ntl_pos
@@ -163,7 +163,7 @@ class HyperliquidMonitor:
         position_change = current_position_value - self.last_position_value
         if position_change > POSITION_THRESHOLD:
             print(f"检测到大额加仓！价值: ${position_change:.2f}")
-            msg = f"【Hyperliquid 大额加仓通知】\n地址: {TARGET_ADDRESS}\n加仓价值: ${position_change:.2f}\n总仓位价值: ${current_position_value:.2f}"
+            msg = f"【Hyperliquid 大额加仓通知】\n地址: {self.target_address}\n加仓价值: ${position_change:.2f}\n总仓位价值: ${current_position_value:.2f}"
             send_feishu_text(WEBHOOK_URL, "Hyperliquid 大额加仓通知", msg)
         
         self.last_position_value = current_position_value
