@@ -45,7 +45,8 @@ class HyperliquidMonitor:
                     print(json.dumps(fill, indent=4))
                     if coin in WHITE_LIST and vaule > VALUE_FILTER:
                         print('满足')
-                        timedate_str = int(fill['time'] / 1000).strftime("%Y-%m-%d %H:%M:%S") 
+                        dt = datetime.datetime.fromtimestamp(fill['time'] / 1000)  # 转换为秒
+                        timedate_str = dt.strftime("%Y-%m-%d %H:%M:%S")
                         dir = DIRECTION_MAPPING[fill["dir"]]
                         send_feishu_text(WEBHOOK_URL, f"{coin} 价值：{vaule} 操作：{dir}", f"时间：{timedate_str}\n地址：{self.target_address}\n{json.dumps(fill, indent=4)}")
                     else:
