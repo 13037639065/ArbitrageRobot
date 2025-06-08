@@ -20,7 +20,9 @@ class HyperliquidMonitor:
         self.subscription_id = None
         self.last_notification_time = 0
         self.last_position_value = 0
-        self.target_address = address or TARGET_ADDRESS  # 使用传入地址或默认地址
+        self.target_address = TARGET_ADDRESS
+        if  address != None:
+            self.target_address = address
         send_feishu_text(WEBHOOK_URL, f"启动监控巨鲸 {self.target_address}", "")
     
     def handle_update(self, data: Any):
