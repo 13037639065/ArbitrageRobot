@@ -6,6 +6,7 @@ import time
 import json
 from feishu_msg import send_feishu_text
 import sys
+import datetime
 
 # 配置参数
 DEFAULT_TARGET_ADDRESS = "0x5b5d51203a0f9079f8aeb098a6523a13f298c060"  # 监控地址
@@ -16,6 +17,13 @@ POSITION_THRESHOLD = 100000  # 加仓价值阈值（单位：美元）
 CHECK_INTERVAL = 300  # 状态检查间隔（秒）
 WHITE_LIST = ['BTC', 'ETH', 'SUI', 'SOL', "DOGE", "XRP"]
 VALUE_FILTER = 10000
+
+DIRECTION_MAPPING = {
+    "Close Long": "平多",
+    "Close Short": "平空",
+    "Open Long": "开多", 
+    "Open Short": "开空"
+}
 
 class HyperliquidMonitor:
     def __init__(self, address=None):
@@ -36,7 +44,9 @@ class HyperliquidMonitor:
                     vaule = float(fill.get("px", 0)) * float(fill.get("sz", 0))
                     if coin in WHITE_LIST and vaule > VALUE_FILTER:
                         print('满足')
-                        send_feishu_text(WEBHOOK_URL, f"{self.target_address} 成交总价：{vaule}", f"{json.dumps(fill, indent=4)}")
+                        timedate_str = int(fill['time'] / 1000).strftime("%Y-%m-%d %H:%M:%S") 
+                        dir = DIRECTION_MAPPING[fill["dir"]]
+                        send_feishu_text(WEBHOOK_URL, f"{coin} 价值：{vaule} 操作：{dir}", f"时间：{timedate_str}\n地址：{self.target_address}\n{json.dumps(fill, indent=4)}")
                     else:
                         print('条件不满足')
                         print(json.dumps(fill, indent=4))
