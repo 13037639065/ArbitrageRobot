@@ -12,10 +12,10 @@ DEFAULT_TARGET_ADDRESS = "0x5b5d51203a0f9079f8aeb098a6523a13f298c060"  # 监控�
 
 # WEBHOOK_URL 从 环境变量获取
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-POSITION_THRESHOLD = 50000  # 加仓价值阈值（单位：美元）
+POSITION_THRESHOLD = 100000  # 加仓价值阈值（单位：美元）
 CHECK_INTERVAL = 300  # 状态检查间隔（秒）
-WHITE_LIST = ['BTC', 'ETH', 'SUI', 'SOL', "LTC", "XRP"]
-VALUE_FILTER = 1000
+WHITE_LIST = ['BTC', 'ETH', 'SUI', 'SOL', "DOGE", "XRP"]
+VALUE_FILTER = 10000
 
 class HyperliquidMonitor:
     def __init__(self, address=None):
