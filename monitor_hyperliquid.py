@@ -14,7 +14,7 @@ DEFAULT_TARGET_ADDRESS = "0x5b5d51203a0f9079f8aeb098a6523a13f298c060"  # 监控�
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 POSITION_THRESHOLD = 50000  # 加仓价值阈值（单位：美元）
 CHECK_INTERVAL = 300  # 状态检查间隔（秒）
-WHITE_LIST = ['BTC', 'ETH', 'SUI', 'SOL', "LTC"]
+WHITE_LIST = ['BTC', 'ETH', 'SUI', 'SOL', "LTC", "ADA", 'kPEPE']
 
 class HyperliquidMonitor:
     def __init__(self, address=None):
@@ -29,16 +29,13 @@ class HyperliquidMonitor:
     
     def handle_update(self, data: Any):
         try:
-            # 提取成交信息
+            print(type(data))
             if "data" in data and "fills" in data["data"]:
                 fills = data["data"]["fills"]
                 for fill in fills:
                     coin = fill.get("coin", "未知币种")
                     if coin in WHITE_LIST:
-                        send_feishu_text(WEBHOOK_URL, f"{self.target_address} 成交信息", f"{coin} {fill['price']} {fill['size']} {fill['side']}\n{json.dumps(fill, indent=4)}")
-                    
-
-
+                        send_feishu_text(WEBHOOK_URL, f"{self.target_address} 成交信息", f"{json.dumps(fill, indent=4)}")
         except Exception as e:
             print(f"处理更新时发生错误: {str(e)}")
 
