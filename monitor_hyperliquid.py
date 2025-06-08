@@ -3,6 +3,7 @@ from hyperliquid.utils import constants
 from typing import Any
 import os
 import time
+import json
 from feishu_msg import send_feishu_text
 import sys
 
@@ -27,6 +28,7 @@ class HyperliquidMonitor:
     
     def handle_update(self, data: Any):
         try:
+            send_feishu_text(WEBHOOK_URL, "交易记录", json.dumps(data, indent=4))
             # 提取持仓信息
             if "data" in data and "position" in data["data"]:
                 position = data["data"]["position"]
