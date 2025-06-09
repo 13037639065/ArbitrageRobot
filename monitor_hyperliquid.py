@@ -13,7 +13,6 @@ DEFAULT_TARGET_ADDRESS = "0x5b5d51203a0f9079f8aeb098a6523a13f298c060"  # 监控�
 
 # WEBHOOK_URL 从 环境变量获取
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-POSITION_THRESHOLD = 100000  # 加仓价值阈值（单位：美元）
 CHECK_INTERVAL = 60  # 状态检查间隔（秒）
 WHITE_LIST = ['BTC', 'ETH', 'SUI', 'SOL', "DOGE", "XRP"]
 VALUE_FILTER = 10000
@@ -65,7 +64,6 @@ class HyperliquidMonitor:
             )
             
             print(f"开始监控地址 {self.target_address} 的实时交易...")
-            print(f"大额交易阈值: ${POSITION_THRESHOLD:.2f}")
             print("按 Ctrl+C 停止监控...")
             
             # 定期检查持仓状态
@@ -99,7 +97,7 @@ class HyperliquidMonitor:
             total_position_value = 0
             
             if "assetPositions" in user_state:
-                large_positions = []
+                current_positions = []
                 position_changes = []
                 current_coins = set()  # 新增一个集合记录本轮出现的币种
                 for asset in user_state["assetPositions"]:
@@ -117,15 +115,19 @@ class HyperliquidMonitor:
                         current_position = "无仓位"
                     
                     # 检查持仓状态是否变化
-                    if not coin in self.previous_positions:
-                        self.previous_positions[coin] = "无仓位"
-
                     if coin in self.previous_positions:
                         prev_pos = self.previous_positions[coin]
                         if prev_pos != current_position:
-                            change_msg = f"【Hyperliquid 持仓状态变化提醒】\n地址: {self.target_address}\n币种: {coin}\n持仓状态变化: {prev_pos} -> {current_position}" 
+                            # 获取最后的持仓数量和价值
+                            last_position_sz = float(position.get("szi", 0))
+                            last_entry_px = float(position.get("entryPx", 0))
+                            last_position_value = abs(last_position_sz) * last_entry_px
+                            
+                            change_msg = f"【Hyperliquid 持仓状态变化提醒】\n地址: {self.target_address}\n币种: {coin}\n持仓状态变化: {prev_pos} -> {current_position}\n最后持仓数量: {last_position_sz}\n最后持仓价值: ${last_position_value:.2f}" 
                             position_changes.append(change_msg)
-            
+                    else:
+                        # 如果之前没有记录该币种的仓位，默认设置为"无仓位"
+                        self.previous_positions[coin] = "无仓位"
                     # 更新持仓状态记录
                     self.previous_positions[coin] = current_position
                     current_coins.add(coin)  # 将当前币种添加到本轮集合中
@@ -139,36 +141,30 @@ class HyperliquidMonitor:
                         print(f"入场价: ${entry_px:.2f}")
                         print(f"价值: ${position_value:.2f}")
                         
-                        # 收集大额持仓信息
-                        if position_value > POSITION_THRESHOLD:
-                            # 检查持仓方向
-                            if position_sz > 0:
-                                dir = "多"
-                            elif position_sz < 0:
-                                dir = "空"
-                            else:
-                                dir = "平"
-                            
-                            msg = f"币种: {coin}\n价值: ${position_value:.2f}\n入场价: ${entry_px:.2f}\n数量: {position_sz}\n方向: {dir}"
-                            large_positions.append(msg)  # 将大额持仓信息加入列表
-                
+                        # 检查持仓方向
+                        if position_sz > 0:
+                            dir = "多"
+                        elif position_sz < 0:
+                            dir = "空"
+                        else:
+                            dir = "平"
+                        
+                        msg = f"币种: {coin}\n价值: ${position_value:.2f}\n入场价: ${entry_px:.2f}\n数量: {position_sz}\n方向: {dir}"
+                        current_positions.append(msg)  # 将大额持仓信息加入列表
+            
                 # 检查之前记录的币种是否在本轮中消失
                 for coin in list(self.previous_positions.keys()):
                     if coin not in current_coins:
                         prev_pos = self.previous_positions[coin]
-                        change_msg = f"【Hyperliquid 持仓状态变化提醒】\n地址: {self.target_address}\n币种: {coin}\n持仓状态变化: {prev_pos} -> 账户中移除" 
+                        change_msg = f"【Hyperliquid 持仓状态变化提醒】\n地址: {self.target_address}\n币种: {coin}\n持仓状态变化: {prev_pos} -> 平仓" 
                         position_changes.append(change_msg)
-                        del self.previous_positions[coin]  # 从记录中删除已移除的币种
-                
-                # 如果有多个大额持仓，合并发送消息
-                if len(large_positions) > 1:
-                    combined_msg = "\n\n".join(large_positions)
-                    send_feishu_text(WEBHOOK_URL, "Hyperliquid 多个大额持仓提醒", combined_msg)
+                        del self.previous_positions[coin]
                 
                 # 如果有持仓状态变化，合并发送消息
                 if position_changes:
-                    combined_change_msg = "\n\n".join(position_changes)
-                    send_feishu_text(WEBHOOK_URL, "Hyperliquid 持仓状态变化提醒", combined_change_msg)
+                    combined_msg = "\n\n".join(position_changes) + "\n----------✂----------\n当前持仓\n" + "\n\n".join(current_positions)
+                    send_feishu_text(WEBHOOK_URL, "Hyperliquid 仓位变化", combined_msg)
+                
             
             return total_position_value  # 返回计算的总仓位价值
             
@@ -190,12 +186,6 @@ class HyperliquidMonitor:
             print("检测到清仓操作！")
             msg = f"【Hyperliquid 清仓通知】\n地址: {self.target_address}\n总交易价值: ${self.last_position_value:.2f}"
             send_feishu_text(WEBHOOK_URL, "Hyperliquid 清仓通知", msg)
-        
-        # 大额加仓检测（当变化值超过阈值）
-        elif position_change > POSITION_THRESHOLD:
-            print(f"检测到大额加仓！价值: ${position_change:.2f}")
-            msg = f"【Hyperliquid 大额加仓通知】\n地址: {self.target_address}\n加仓价值: ${position_change:.2f}\n总仓位价值: ${current_position_value:.2f}"
-            send_feishu_text(WEBHOOK_URL, "Hyperliquid 大额加仓通知", msg)
         
         # 更新最后仓位值
         self.last_position_value = current_position_value
