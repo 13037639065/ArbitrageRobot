@@ -124,7 +124,8 @@ class HyperliquidMonitor:
                             last_position_value = abs(last_position_sz) * last_entry_px
                             
                             change_msg = f"【Hyperliquid 持仓状态变化提醒】\n地址: {self.target_address}\n币种: {coin}\n持仓状态变化: {prev_pos} -> {current_position}\n最后持仓数量: {last_position_sz}\n最后持仓价值: ${last_position_value:.2f}" 
-                            position_changes.append(change_msg)
+                            if coin in WHITE_LIST:
+                                position_changes.append(change_msg)
                     else:
                         # 如果之前没有记录该币种的仓位，默认设置为"无仓位"
                         self.previous_positions[coin] = "无仓位"
@@ -150,14 +151,16 @@ class HyperliquidMonitor:
                             dir = "平"
                         
                         msg = f"币种: {coin}\n价值: ${position_value:.2f}\n入场价: ${entry_px:.2f}\n数量: {position_sz}\n方向: {dir}"
-                        current_positions.append(msg)  # 将大额持仓信息加入列表
+                        if coin in WHITE_LIST:
+                            current_positions.append(msg)  # 将大额持仓信息加入列表
             
                 # 检查之前记录的币种是否在本轮中消失
                 for coin in list(self.previous_positions.keys()):
                     if coin not in current_coins:
                         prev_pos = self.previous_positions[coin]
                         change_msg = f"【Hyperliquid 持仓状态变化提醒】\n地址: {self.target_address}\n币种: {coin}\n持仓状态变化: {prev_pos} -> 平仓" 
-                        position_changes.append(change_msg)
+                        if coin in WHITE_LIST:
+                            position_changes.append(change_msg)
                         del self.previous_positions[coin]
                 
                 # 如果有持仓状态变化，合并发送消息
