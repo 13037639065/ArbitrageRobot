@@ -52,7 +52,7 @@ class TradeMonitor:
 
             # 保持主线程运行
             while True:
-                time.sleep(CHECK_INTERVAL)
+                time.sleep(1)
 
         except KeyboardInterrupt:
             print("\n监控已停止")
