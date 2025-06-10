@@ -49,13 +49,15 @@ class TradeMonitor:
             )
             print(f"开始监控地址 {self.target_address} 的实时交易...")
             print("按 Ctrl+C 停止监控...")
+            send_feishu_text(WEBHOOK_URL, "监控已开始", f"监控地址 {self.target_address}")
 
             # 保持主线程运行
             while True:
                 time.sleep(1)
 
         except KeyboardInterrupt:
-            print("\n监控已停止")
+            send_feishu_text(WEBHOOK_URL, "监控已停止", f"监控地址 {self.target_address}")
+            print("\n")
         finally:
             self.stop_monitoring()
 
